@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict
 import torch
 import random
 
@@ -34,17 +34,22 @@ class DeepQLearningAgent:
         """
         Preprocess last 4 frames to get them to shape (4, 84, 84)
         """
-        return self.resizer(torch.tensor(state))[:, 16:-10]
+        return self.resizer(state).clone()[:, 16:-10]
 
     def update(
-        self, preprocessed_sequence: torch.Tensor, y: torch.Tensor
-    ):  # preprocess_sequence (32, 4, 84, 84) and y (32, 4)
+        self,
+        preprocessed_sequence: torch.Tensor,
+        y: torch.Tensor,
+        actions: torch.Tensor,
+    ) -> None:  # preprocess_sequence (32, 4, 84, 84) and y (32, 4)
         self.model.zero_grad()
-        output = self.loss(preprocessed_sequence, y)
-        output.backward()
+        output = self.model(preprocessed_sequence)
+        output = torch.take(output, actions)
+        loss_value = self.loss(output, y)
+        loss_value.backward()
         self.optimizer.step()
 
-    def get_value(self, phi_tp: torch.Tensor, last_state_dict: Dict):
+    def get_value(self, phi_tp: torch.Tensor, last_state_dict: Dict) -> torch.Tensor:
         curr_state_dict = self.model.state_dict()
         self.model.load_state_dict(last_state_dict)
 
