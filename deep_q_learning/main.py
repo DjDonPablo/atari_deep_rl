@@ -4,7 +4,6 @@ import ale_py
 import torch
 
 from typing import List, Tuple
-from gymnasium.core import Env
 from agent import DeepQLearningAgent
 
 gym.register_envs(ale_py)
@@ -15,27 +14,20 @@ Reward = float
 
 def update_agent(
     replay_memory: List[Tuple[torch.Tensor, Action, Reward, bool, torch.Tensor]],
-    env: Env,
     agent: DeepQLearningAgent,
 ):
-    batch_size = min(len(replay_memory), agent.batch_size)
-    batch = random.sample(replay_memory, batch_size)
+    """
+    Take `agent.batch_size` random samples from `replay_memory` and update qvalue agent estimator.
+    """
+    if len(replay_memory) >= agent.batch_size:
+        batch = random.sample(replay_memory, agent.batch_size)
+        phi_ts = torch.stack([b[0] for b in batch])
+        actions = torch.tensor([b[1] for b in batch])
+        rewards = torch.tensor([b[2] for b in batch])
+        dones = torch.tensor([b[3] for b in batch], dtype=torch.float32)
+        phi_tps = torch.stack([b[4] for b in batch])
 
-    phi_ts = torch.stack([b[0] for b in batch])
-    actions = torch.tensor([b[1] for b in batch])
-    rewards = torch.tensor([b[2] for b in batch])
-    is_not_done = torch.tensor([not b[3] for b in batch], dtype=torch.float32)
-    phi_tps = torch.stack([b[4] for b in batch])
-
-    with torch.no_grad():
-        y = is_not_done * 0.99 * agent.get_value(phi_tps)
-        y += rewards
-
-    agent.update(
-        phi_ts,
-        y,
-        actions,
-    )
+        agent.update(phi_ts, actions, rewards, dones, phi_tps)
 
 
 def train_deep_q_learning(
@@ -43,61 +35,58 @@ def train_deep_q_learning(
     M: int = 10000,
     T: int = 50000,
 ):
-    env = gym.make("ALE/Breakout-v5", obs_type="grayscale")  # , render_mode="human"
-    agent = DeepQLearningAgent(0.01, 0.1, env.action_space.n)  # pyright: ignore
+    env = gym.make(
+        "ALE/Breakout-v5", obs_type="grayscale"
+    )  # render_mode="human" to see it play
+    agent = DeepQLearningAgent(0.001, 1.0, env.action_space.n)  # pyright: ignore
 
-    replay_memory: List[
-        Tuple[torch.Tensor, Action, Reward, bool, torch.Tensor]
-    ] = []  # max size is 100 000
+    replay_mem: List[Tuple[torch.Tensor, Action, Reward, bool, torch.Tensor]] = []
+    last_total_steps = 0
+    total_steps = 0
+    total_reward = 0.0
 
     for ep in range(1, M):
-        total_reward = 0.0
         s, _ = env.reset(seed=42)
-        last_frames = [torch.tensor(s)]
-        action = 0
-        # warmup
-        for _ in range(4 - 1):  # skip first 3 frames
-            new_s, r, done, _, _ = env.step(action)
-            last_frames.append(torch.tensor(new_s))
+        last_frames = [torch.tensor(s) for _ in range(4)]
 
         for t in range(1, T):
-            phi_t = agent.preprocess_frames(
-                torch.stack(last_frames)
-            ).float()  # stack last 4 frames and process -> (4, 84, 84)
-            action = agent.get_action(phi_t.unsqueeze(0))  # add a batch dim
+            phi_t = agent.preprocess_frames(torch.stack(last_frames)).float()
+            action = agent.get_action(phi_t.unsqueeze(0))
 
+            # execute action in env and clip reward
             new_s, r, done, _, _ = env.step(action)
             reward = float(max(-1, min(1, r)))  # pyright: ignore
             total_reward += reward
 
-            # add new state to seq
+            # pop first oldest state and add new one
             last_frames.pop(0)
             last_frames.append(torch.tensor(new_s))
 
-            # update replay memory
             phi_tp = agent.preprocess_frames(torch.stack(last_frames)).float()
-            if len(replay_memory) == 100000:
-                replay_memory.pop(0)
-            replay_memory.append(
-                (
-                    phi_t,
-                    action,
-                    reward,
-                    done,
-                    phi_tp,
-                )
-            )
 
-            # update agent q values and get last state dict
-            update_agent(replay_memory, env, agent)
+            # update replay memory
+            if len(replay_mem) == 100000:
+                replay_mem.pop(0)
+            replay_mem.append((phi_t, action, reward, done, phi_tp))
+
+            # update agent q values
+            update_agent(replay_mem, agent)
+
+            total_steps += 1
+            if total_steps % 1000 == 0:
+                agent.update_target_model()
 
             if done:
                 break
 
+        agent.decay_epsilon()
+
         if ep % 10 == 0:
             print(
-                f"Total reward on last simulation after {ep} simulations: {total_reward}"
+                f"mean reward over 10 simulations and {total_steps - last_total_steps} steps : {round(total_reward / 10, 2)} - simulations {ep} - epsilon {round(agent.epsilon, 4)} - total steps - {total_steps}"
             )
+            total_reward = 0
+            last_total_steps = total_steps
 
         if ep % 1000 == 0:
             torch.save(agent.model.state_dict(), "dql.pt")

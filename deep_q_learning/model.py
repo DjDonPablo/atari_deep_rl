@@ -6,7 +6,6 @@ from torch.nn.functional import relu
 class QFunction(nn.Module):
     def __init__(self, nb_actions: int):
         super().__init__()
-        # input is of shape (BATCH_SIZE, NB_CHANNELS, HEIGHT, WIDTH) = (1-32, 4, 84, 84)
         self.conv1 = nn.Conv2d(4, 16, kernel_size=(8, 8), stride=4)
         self.conv2 = nn.Conv2d(16, 32, kernel_size=(4, 4), stride=2)
         self.dense1 = nn.Linear(2592, 256)
