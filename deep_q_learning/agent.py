@@ -1,4 +1,3 @@
-from typing import Dict
 import torch
 import random
 
@@ -25,9 +24,8 @@ class DeepQLearningAgent:
         self.action_space = Discrete(n_actions)
         self.batch_size = batch_size
         self.model = QFunction(n_actions)
-        self.optimizer = torch.optim.RMSprop(self.model.parameters(), learning_rate)
-        self.loss = MSELoss()
-        self.skip_frames = skip_frames
+        self.optimizer = torch.optim.RMSprop(self.model.parameters(), learning_rate)  # pyright: ignore
+        self.loss_fn = MSELoss()
         self.resizer = Resize((110, 84))
 
     def preprocess_frames(self, state: State) -> State:
@@ -42,22 +40,18 @@ class DeepQLearningAgent:
         y: torch.Tensor,
         actions: torch.Tensor,
     ) -> None:
-        self.model.zero_grad()
+        self.optimizer.zero_grad()
+
         output = self.model(preprocessed_sequence)
         output = output.gather(1, actions.unsqueeze(1)).squeeze(1)
 
-        loss_value = self.loss(output, y)
+        loss_value = self.loss_fn(output, y)
         loss_value.backward()
+
         self.optimizer.step()
 
-    def get_value(self, phi_tp: torch.Tensor, last_state_dict: Dict) -> torch.Tensor:
-        curr_state_dict = self.model.state_dict()
-        self.model.load_state_dict(last_state_dict)
-
-        value = torch.max(self.model(phi_tp), dim=1)[0]
-
-        self.model.load_state_dict(curr_state_dict)
-        return value
+    def get_value(self, phi_tp: torch.Tensor) -> torch.Tensor:
+        return torch.max(self.model(phi_tp), dim=1)[0]
 
     def get_best_action(self, state: State) -> Action:  # state is [(84, 84) * 4]
         return Action(torch.argmax(self.model(state)[0]).item())
