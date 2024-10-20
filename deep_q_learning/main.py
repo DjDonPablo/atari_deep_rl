@@ -12,7 +12,7 @@ gym.register_envs(ale_py)
 env = gym.make("ALE/Breakout-v5", obs_type="grayscale")  # , render_mode="human"
 s, _ = env.reset(seed=42)
 
-agent = DeepQLearningAgent(0.01, 0.05, env.action_space.n)  # pyright: ignore
+agent = DeepQLearningAgent(0.01, 0.1, env.action_space.n)  # pyright: ignore
 
 Action = int
 Reward = float
@@ -27,7 +27,7 @@ def update_replay_memory(
     phi_tp: torch.Tensor,
     done: bool,
 ):
-    if len(replay_memory) == 50000:
+    if len(replay_memory) == 100000:
         replay_memory.pop(0)
     replay_memory.append(
         (
@@ -44,7 +44,6 @@ def update_agent(
     replay_memory: List[Tuple[torch.Tensor, Action, Reward, bool, torch.Tensor]],
     env: Env,
     agent: DeepQLearningAgent,
-    learning_rate: float,
     last_state_dict: Dict,
 ):
     batch_size = min(len(replay_memory), agent.batch_size)
@@ -57,7 +56,7 @@ def update_agent(
     phi_tps = torch.stack([b[4] for b in batch])
 
     with torch.no_grad():
-        y = is_not_done * learning_rate * agent.get_value(phi_tps, last_state_dict)
+        y = is_not_done * 0.99 * agent.get_value(phi_tps, last_state_dict)
         y += rewards
 
     new_last_state_dict = agent.model.state_dict()
@@ -74,12 +73,12 @@ def train_deep_q_learning(
     agent: DeepQLearningAgent,
     env: Env,
     learning_rate: float = 0.5,
-    M: int = 1000,
+    M: int = 10000,
     T: int = 50000,
 ):
     replay_memory: List[
         Tuple[torch.Tensor, Action, Reward, bool, torch.Tensor]
-    ] = []  # max size is 50 000
+    ] = []  # max size is 100 000
     last_state_dict = agent.model.state_dict()
 
     for ep in range(1, M):
@@ -90,7 +89,6 @@ def train_deep_q_learning(
         # warmup
         for _ in range(agent.skip_frames - 1):
             new_s, r, done, _, _ = env.step(a)
-            total_reward += r  # pyright: ignore
             last_frames.append(torch.tensor(new_s))
 
         for t in range(1, T):
@@ -100,7 +98,7 @@ def train_deep_q_learning(
             a = agent.get_action(phi_t.unsqueeze(0))  # add a batch dim
 
             new_s, r, done, _, _ = env.step(a)
-            total_reward += r  # pyright: ignore
+            total_reward += max(-1, min(1, r))  # pyright: ignore
 
             # add new state to seq
             last_frames.pop(0)
@@ -111,15 +109,15 @@ def train_deep_q_learning(
             update_replay_memory(replay_memory, agent, phi_t, a, float(r), phi_tp, done)
 
             # update agent q values and get last state dict
-            last_state_dict = update_agent(
-                replay_memory, env, agent, learning_rate, last_state_dict
-            )
+            last_state_dict = update_agent(replay_memory, env, agent, last_state_dict)
 
             if done:
                 break
 
         if ep % 10 == 0:
-            print(f"Total reward after {ep} simulations: {total_reward}")
+            print(
+                f"Total reward on last simulation after {ep} simulations: {total_reward}"
+            )
 
     torch.save(agent.model.state_dict(), "dql.pt")
 

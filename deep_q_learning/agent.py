@@ -41,10 +41,11 @@ class DeepQLearningAgent:
         preprocessed_sequence: torch.Tensor,
         y: torch.Tensor,
         actions: torch.Tensor,
-    ) -> None:  # preprocess_sequence (32, 4, 84, 84) and y (32, 4)
+    ) -> None:
         self.model.zero_grad()
         output = self.model(preprocessed_sequence)
-        output = torch.take(output, actions)
+        output = output.gather(1, actions.unsqueeze(1)).squeeze(1)
+
         loss_value = self.loss(output, y)
         loss_value.backward()
         self.optimizer.step()
