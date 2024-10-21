@@ -45,7 +45,7 @@ def train_deep_q_learning():
     start = time.time()
 
     for ep in range(1, 20000):
-        s, _ = env.reset(seed=69)
+        s, _ = env.reset(seed=42)
         last_frames = [torch.tensor(s) for _ in range(4)]
 
         for t in range(1, 20000):

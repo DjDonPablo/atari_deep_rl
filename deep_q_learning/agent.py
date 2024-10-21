@@ -68,6 +68,8 @@ class DeepQLearningAgent:
         loss = self.loss_fn(outputs, targets)
         loss.backward()
 
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+
         self.optimizer.step()
 
     def get_value(self, phi_tp: torch.Tensor) -> torch.Tensor:
