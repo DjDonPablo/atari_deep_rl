@@ -36,12 +36,12 @@ def train_deep_q_learning():
     env = gym.make(
         "ALE/Breakout-v5", obs_type="grayscale"
     )  # render_mode="human" to see it play
-    agent = DeepQLearningAgent(1e-4, 1.0, env.action_space.n)  # pyright: ignore
+    agent = DeepQLearningAgent(2e-4, 1.0, env.action_space.n)  # pyright: ignore
 
     replay_mem: List[Tuple[torch.Tensor, Action, Reward, bool, torch.Tensor]] = []
     last_total_steps = 0
     total_steps = 0
-    total_reward = 0.0
+    total_reward = 0
     start = time.time()
 
     for ep in range(1, 20000):
@@ -55,7 +55,7 @@ def train_deep_q_learning():
             # execute action in env and clip reward
             new_s, r, done, _, _ = env.step(action)
             reward = np.uint8(max(-1, min(1, r)))  # pyright: ignore
-            total_reward += reward
+            total_reward += int(reward)
 
             # pop first oldest state and add new one
             last_frames.pop(0)
@@ -88,8 +88,8 @@ def train_deep_q_learning():
             last_total_steps = total_steps
             start = time.time()
 
-        if ep % 1000 == 0:
-            torch.save(agent.model.state_dict(), "dql.pt")
+        if ep % 500 == 0:
+            torch.save(agent.model.state_dict(), f"ep_{ep}.pt")
 
 
 train_deep_q_learning()

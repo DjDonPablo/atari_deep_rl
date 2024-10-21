@@ -17,8 +17,8 @@ class DeepQLearningAgent:
         batch_size: int = 32,
     ):
         self.epsilon = epsilon
-        self.epsilon_decay = 0.998
-        self.epsilon_min = 0.08
+        self.epsilon_decay = 0.999
+        self.epsilon_min = 0.1
         self.legal_actions = list(range(n_actions))
         self.batch_size = batch_size
 
@@ -26,9 +26,7 @@ class DeepQLearningAgent:
         self.target_model = QFunction(n_actions)
         self.target_model.load_state_dict(self.model.state_dict())
 
-        self.optimizer = torch.optim.AdamW(  # pyright: ignore
-            self.model.parameters(), learning_rate, amsgrad=True
-        )
+        self.optimizer = torch.optim.RMSprop(self.model.parameters(), learning_rate)  # pyright: ignore
         self.loss_fn = MSELoss()
         self.resizer = torch.nn.functional.interpolate
 
