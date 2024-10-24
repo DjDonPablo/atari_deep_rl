@@ -36,7 +36,7 @@ def train_deep_q_learning():
     env = gym.make(
         "ALE/Breakout-v5", obs_type="grayscale"
     )  # render_mode="human" to see it play
-    agent = DeepQLearningAgent(2e-4, 1.0, env.action_space.n)  # pyright: ignore
+    agent = DeepQLearningAgent(1.5e-4, 1.0, env.action_space.n)  # pyright: ignore
 
     replay_mem: List[Tuple[torch.Tensor, Action, Reward, bool, torch.Tensor]] = []
     last_total_steps = 0
@@ -44,7 +44,7 @@ def train_deep_q_learning():
     total_reward = 0
     start = time.time()
 
-    for ep in range(1, 20000):
+    for ep in range(1, 100000):
         s, _ = env.reset(seed=42)
         last_frames = [torch.tensor(s) for _ in range(4)]
 
@@ -64,7 +64,7 @@ def train_deep_q_learning():
             phi_tp = agent.preprocess_frames(torch.stack(last_frames)).float()
 
             # update replay memory
-            if len(replay_mem) == 200000:
+            if len(replay_mem) == 180000:
                 replay_mem.pop(0)
             replay_mem.append((phi_t, np.uint8(action), reward, done, phi_tp))
 
@@ -72,23 +72,22 @@ def train_deep_q_learning():
             update_agent(replay_mem, agent)
 
             total_steps += 1
+            agent.decay_epsilon(total_steps)
             if total_steps % 5000 == 0:
                 agent.update_target_model()
 
             if done:
                 break
 
-        agent.decay_epsilon()
-
         if ep % 10 == 0:
             print(
-                f"mean reward over 10 simulations and {total_steps - last_total_steps} steps : {round(total_reward / 10, 2)} - trained on {ep} simulations - epsilon {round(agent.epsilon, 4)} - {total_steps} total steps - {round(time.time() - start, 2)} sec"
+                f"mean reward over 10 simulations and {total_steps - last_total_steps} steps : {round(total_reward / 10, 2)} - trained on {ep} simulations - epsilon {round(agent.epsilon, 4)} - {total_steps} total steps - {round(time.time() - start, 2)} sec", flush=True
             )
             total_reward = 0
             last_total_steps = total_steps
             start = time.time()
 
-        if ep % 500 == 0:
+        if ep % 1000 == 0:
             torch.save(agent.model.state_dict(), f"ep_{ep}.pt")
 
 

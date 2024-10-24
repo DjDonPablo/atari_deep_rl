@@ -17,13 +17,13 @@ class DeepQLearningAgent:
         batch_size: int = 32,
     ):
         self.epsilon = epsilon
-        self.epsilon_decay = 0.999
-        self.epsilon_min = 0.1
+        self.gamma = 0.99
         self.legal_actions = list(range(n_actions))
         self.batch_size = batch_size
+        self.device = torch.device("cuda:0")
 
-        self.model = QFunction(n_actions)
-        self.target_model = QFunction(n_actions)
+        self.model = QFunction(n_actions).to(self.device)
+        self.target_model = QFunction(n_actions).to(self.device)
         self.target_model.load_state_dict(self.model.state_dict())
 
         self.optimizer = torch.optim.RMSprop(self.model.parameters(), learning_rate)  # pyright: ignore
@@ -36,10 +36,10 @@ class DeepQLearningAgent:
         """
         return self.resizer(
             state.unsqueeze(0),
-            size=(84, 84),
+            size=(110, 84),
             mode="bilinear",
             align_corners=False,
-        ).squeeze(0)
+        )[:, :, 17:-9].squeeze(0)
 
     def update(
         self,
@@ -55,13 +55,13 @@ class DeepQLearningAgent:
         self.optimizer.zero_grad()
 
         outputs = (
-            self.model(phi_ts / 255)
-            .gather(1, actions.to(torch.int64).unsqueeze(1))
+            self.model((phi_ts / 255).to(self.device))
+            .gather(1, actions.to(torch.int64).unsqueeze(1).to(self.device))
             .squeeze(1)
         )
 
         with torch.no_grad():
-            targets = rewards + (1 - dones) * 0.99 * self.get_value(phi_tps)
+            targets = rewards.to(self.device) + (1 - dones).to(self.device) * self.gamma * self.get_value(phi_tps)
 
         loss = self.loss_fn(outputs, targets)
         loss.backward()
@@ -74,13 +74,13 @@ class DeepQLearningAgent:
         """
         Get best qvalue from target model
         """
-        return torch.max(self.target_model(phi_tp / 255), dim=1)[0]
+        return torch.max(self.target_model((phi_tp / 255).to(self.device)), dim=1)[0]
 
     def get_best_action(self, state: State) -> Action:
         """
         Get best action from model
         """
-        return Action(torch.argmax(self.model(state / 255)[0]).item())
+        return Action(torch.argmax(self.model((state / 255).to(self.device))[0]).item())
 
     def get_action(self, state: State) -> Action:
         """
@@ -97,8 +97,9 @@ class DeepQLearningAgent:
         """
         self.target_model.load_state_dict(self.model.state_dict())
 
-    def decay_epsilon(self):
+    def decay_epsilon(self, step):
         """
         Update epsilon value using `epsilon_decay` and `epsilon_min`
         """
-        self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
+        if step >= 50000 and step <= 1000000:
+            self.epsilon -= 0.9 / 950000
