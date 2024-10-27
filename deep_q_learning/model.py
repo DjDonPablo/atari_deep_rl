@@ -1,5 +1,6 @@
+import torch
+
 from torch import nn
-from torch.functional import Tensor
 from torch.nn.functional import relu
 
 
@@ -12,7 +13,7 @@ class QFunction(nn.Module):
         self.dense1 = nn.Linear(3136, 512)
         self.dense2 = nn.Linear(512, nb_actions)
 
-    def forward(self, x: Tensor):
+    def forward(self, x: torch.Tensor):
         x = relu(self.conv1(x))
         x = relu(self.conv2(x))
         x = relu(self.conv3(x))

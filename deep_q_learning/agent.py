@@ -20,7 +20,7 @@ class DeepQLearningAgent:
         self.gamma = 0.99
         self.legal_actions = list(range(n_actions))
         self.batch_size = batch_size
-        self.device = torch.device("cuda:0")
+        self.device = torch.device("cpu")
 
         self.model = QFunction(n_actions).to(self.device)
         self.target_model = QFunction(n_actions).to(self.device)
@@ -61,7 +61,9 @@ class DeepQLearningAgent:
         )
 
         with torch.no_grad():
-            targets = rewards.to(self.device) + (1 - dones).to(self.device) * self.gamma * self.get_value(phi_tps)
+            targets = rewards.to(self.device) + (1 - dones).to(
+                self.device
+            ) * self.gamma * self.get_value(phi_tps)
 
         loss = self.loss_fn(outputs, targets)
         loss.backward()

@@ -81,7 +81,8 @@ def train_deep_q_learning():
 
         if ep % 10 == 0:
             print(
-                f"mean reward over 10 simulations and {total_steps - last_total_steps} steps : {round(total_reward / 10, 2)} - trained on {ep} simulations - epsilon {round(agent.epsilon, 4)} - {total_steps} total steps - {round(time.time() - start, 2)} sec", flush=True
+                f"mean reward over 10 simulations and {total_steps - last_total_steps} steps : {round(total_reward / 10, 2)} - trained on {ep} simulations - epsilon {round(agent.epsilon, 4)} - {total_steps} total steps - {round(time.time() - start, 2)} sec",
+                flush=True,
             )
             total_reward = 0
             last_total_steps = total_steps
