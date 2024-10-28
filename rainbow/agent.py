@@ -2,6 +2,7 @@ import torch
 
 from torch.nn import MSELoss
 from model import RainbowQFunction
+from torchrl.data import ListStorage, PrioritizedReplayBuffer
 
 Action = int
 State = torch.Tensor
@@ -11,21 +12,23 @@ class RainbowAgent:
     def __init__(
         self,
         learning_rate: float,
-        n_actions: int,
+        nb_actions: int,
         batch_size: int = 32,
     ):
+        self.replay_buffer = PrioritizedReplayBuffer(
+            alpha=0.6, beta=0.4, storage=ListStorage(180000)
+        )
         self.min_history_start_learning = 80000
         self.max_ep = 100000
-        self.max_frames_per_ep = 100000
-        self.replay_memory_size = 180000
-        self.update_target_model_freq = 10000
+        self.max_frames_per_ep = 30000
+        self.update_target_model_freq = 5000
         self.gamma = 0.99
-        self.legal_actions = list(range(n_actions))
+        self.legal_actions = list(range(nb_actions))
         self.batch_size = batch_size
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda:0")
 
-        self.model = RainbowQFunction(n_actions).to(self.device)
-        self.target_model = RainbowQFunction(n_actions).to(self.device)
+        self.model = RainbowQFunction(nb_actions).to(self.device)
+        self.target_model = RainbowQFunction(nb_actions).to(self.device)
         self.target_model.load_state_dict(self.model.state_dict())
 
         self.optimizer = torch.optim.Adam(
@@ -53,11 +56,14 @@ class RainbowAgent:
         rewards: torch.Tensor,
         dones: torch.Tensor,
         phi_tps: torch.Tensor,
-    ):
+    ) -> None:
         """
-        Update qvalue estimator
+        Update Qvalue estimator
         """
         self.optimizer.zero_grad()
+
+        self.model.reset_noise()
+        self.target_model.reset_noise()
 
         outputs = (
             self.model((phi_ts / 255).to(self.device))
@@ -72,8 +78,6 @@ class RainbowAgent:
 
         loss = self.loss_fn(outputs, targets)
         loss.backward()
-
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
         self.optimizer.step()
 
@@ -93,7 +97,7 @@ class RainbowAgent:
 
     def get_action(self, state: State) -> Action:
         """
-        Return an action following an epsilon-greedy algorithm
+        Return the best action (random comes from noisy nets)
         """
         return Action(torch.argmax(self.model((state / 255).to(self.device))[0]).item())
 

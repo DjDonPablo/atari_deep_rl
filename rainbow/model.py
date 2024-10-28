@@ -6,7 +6,11 @@ from torchrl.modules import NoisyLinear
 
 
 class RainbowQFunction(nn.Module):
-    def __init__(self, nb_actions: int, noisy_nets_std: float = 0.5):
+    def __init__(
+        self,
+        nb_actions: int,
+        noisy_nets_std: float = 0.5,
+    ):
         super().__init__()
         self.nb_actions = nb_actions
 
@@ -19,6 +23,12 @@ class RainbowQFunction(nn.Module):
 
         self.dense2_adv = NoisyLinear(512, nb_actions, std_init=noisy_nets_std)
         self.dense2_val = NoisyLinear(512, 1, std_init=noisy_nets_std)
+
+    def reset_noise(self):
+        self.dense1_adv.reset_noise()
+        self.dense1_val.reset_noise()
+        self.dense2_adv.reset_noise()
+        self.dense2_val.reset_noise()
 
     def forward(self, x: torch.Tensor):
         x = relu(self.conv1(x))
