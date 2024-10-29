@@ -1,6 +1,6 @@
 # atari_deep_rl
 
-This repository contains 2 implementations of Deep Q Learning models :
+This repository contains 2 implementations of Deep Q Learning models for the Atari game **Breakout** :
 - A basic Deep Q Learning implementation.
 - A Rainbow implementation with 4 of the 6 optimizations discussed in the paper.
 
