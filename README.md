@@ -24,7 +24,7 @@ Optimizer is RMSProp.
 
 When playing, **epsilon** is at 0.05 and the agent uses its 5 lifes. The following agent was trained on 10k simulations.
 
-![Alt Text](https://github.com/DjDonPablo/atari_deep_rl/blob/main/run_10000_01eps_005inf.gif)
+![Alt Text](https://github.com/DjDonPablo/atari_deep_rl/blob/main/dql_10k_01eps_005inf.gif)
 
 ## Rainbow Q Learning
 
