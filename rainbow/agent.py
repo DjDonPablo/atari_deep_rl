@@ -25,7 +25,7 @@ class RainbowAgent:
         self.gamma = 0.99
         self.legal_actions = list(range(nb_actions))
         self.batch_size = batch_size
-        self.device = torch.device("cuda:0")
+        self.device = torch.device("cpu")
 
         self.model = RainbowQFunction(nb_actions).to(self.device)
         self.target_model = RainbowQFunction(nb_actions).to(self.device)

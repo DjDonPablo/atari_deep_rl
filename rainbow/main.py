@@ -5,7 +5,6 @@ import time
 
 from agent import RainbowAgent
 
-
 gym.register_envs(ale_py)
 
 Action = int

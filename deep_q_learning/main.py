@@ -34,8 +34,10 @@ def update_agent(
 
 def train_deep_q_learning():
     env = gym.make(
-        "ALE/Breakout-v5", obs_type="grayscale"
-    )  # render_mode="human" to see it play
+        "ALE/Breakout-v5",
+        obs_type="grayscale",
+        repeat_action_probability=0,
+    )
     agent = DeepQLearningAgent(1.5e-4, 1.0, env.action_space.n)  # pyright: ignore
 
     replay_mem: List[Tuple[torch.Tensor, Action, Reward, bool, torch.Tensor]] = []
