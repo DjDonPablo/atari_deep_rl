@@ -11,7 +11,7 @@ from agent import DeepQLearningAgent
 gym.register_envs(ale_py)
 
 Action = np.uint8
-Reward = np.uint8
+Reward = np.int8
 
 
 def update_agent(
@@ -56,7 +56,7 @@ def train_deep_q_learning():
 
             # execute action in env and clip reward
             new_s, r, done, _, _ = env.step(action)
-            reward = np.uint8(max(-1, min(1, r)))  # pyright: ignore
+            reward = np.int8(max(-1, min(1, r)))  # pyright: ignore
             total_reward += int(reward)
 
             # pop first oldest state and add new one
